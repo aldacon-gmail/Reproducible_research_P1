@@ -68,6 +68,7 @@ hist(hist_sum, main="Histogram", xlab="Number of daily steps")
 
 2. Calculate and report the **mean** and **median** total number of steps taken per day
 
+**Mean**
 
 ```r
 mean(hist_sum, na.rm=TRUE)
@@ -77,22 +78,20 @@ mean(hist_sum, na.rm=TRUE)
 ## [1] 10766.19
 ```
 
+**Median**
+
 ```r
-quantile(hist_sum, na.rm=TRUE)
+median(hist_sum, na.rm=TRUE)
 ```
 
 ```
-##    0%   25%   50%   75%  100% 
-##    41  8841 10765 13294 21194
+## [1] 10765
 ```
 
-```r
 hist(hist_sum, main="Histogram", xlab="Number of daily steps")
 abline(v=mean(hist_sum, na.rm=TRUE), col="red", lwd=2)
 legend("topright", legend = c("mean"), col=c("red"), lty=c(1))
 ```
-
-![](figure/mean-1.png)<!-- -->
 
 ### What is the average daily activity pattern?
 

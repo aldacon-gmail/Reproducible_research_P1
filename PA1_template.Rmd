@@ -73,9 +73,15 @@ hist(hist_sum, main="Histogram", xlab="Number of daily steps")
 
 2. Calculate and report the **mean** and **median** total number of steps taken per day
 
+**Mean**
 ```{r mean}
 mean(hist_sum, na.rm=TRUE)
-quantile(hist_sum, na.rm=TRUE)
+```
+
+**Median**
+```{r median}
+median(hist_sum, na.rm=TRUE)
+```
 
 hist(hist_sum, main="Histogram", xlab="Number of daily steps")
 abline(v=mean(hist_sum, na.rm=TRUE), col="red", lwd=2)
