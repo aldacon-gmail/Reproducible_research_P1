@@ -185,12 +185,11 @@ mean(new_hist_sum, na.rm=TRUE)
 ```
 
 ```r
-quantile(new_hist_sum, na.rm=TRUE)
+median(new_hist_sum, na.rm=TRUE)
 ```
 
 ```
-##    0%   25%   50%   75%  100% 
-##    41  9819 10762 12811 21194
+## [1] 10762
 ```
 
 And the main impact on the Histogram is that the average interval increases. As
@@ -199,7 +198,7 @@ it can be seen compared to the previous histogram.
 
 ```r
 par(mfrow=c(1,2))
-hist(new_hist_sum, main="Histogram", xlab="Number of daily steps")
+hist(new_hist_sum, main="New Histogram", xlab="Number of daily steps")
 legend("topright", legend = c("mean"), col=c("red"), lty=c(1))
 abline(v=mean(new_hist_sum, na.rm=TRUE), col="red", lwd=2)
 hist(hist_sum, ylim=c(0,35), main="Histogram", xlab="Number of daily steps")
