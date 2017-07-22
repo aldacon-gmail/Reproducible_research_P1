@@ -159,7 +159,7 @@ quantile(new_hist_sum, na.rm=TRUE)
 And the main impact on the Histogram is that the average interval increases. As
 it can be seen compared to the previous histogram.
 
-```{r histogram comparison}
+```{r histogram_comparison}
 par(mfrow=c(1,2))
 hist(new_hist_sum, main="Histogram", xlab="Number of daily steps")
 legend("topright", legend = c("mean"), col=c("red"), lty=c(1))

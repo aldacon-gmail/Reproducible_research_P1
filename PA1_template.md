@@ -207,7 +207,7 @@ abline(v=mean(hist_sum, na.rm=TRUE), col="red", lwd=2)
 legend("topright", legend = c("mean"), col=c("red"), lty=c(1))
 ```
 
-![](figure/histogram comparison-1.png)<!-- -->
+![](figure/histogram_comparison-1.png)<!-- -->
 
 ### Are there differences in activity patterns between weekdays and weekends?
 
