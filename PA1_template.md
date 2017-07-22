@@ -95,7 +95,7 @@ abline(v=mean(hist_sum, na.rm=TRUE), col="red", lwd=2)
 legend("topright", legend = c("mean"), col=c("red"), lty=c(1))
 ```
 
-![](figure/histogram mean-1.png)<!-- -->
+![](figure/histogram_mean-1.png)<!-- -->
 
 ### What is the average daily activity pattern?
 
