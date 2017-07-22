@@ -88,10 +88,14 @@ median(hist_sum, na.rm=TRUE)
 ## [1] 10765
 ```
 
+
+```r
 hist(hist_sum, main="Histogram", xlab="Number of daily steps")
 abline(v=mean(hist_sum, na.rm=TRUE), col="red", lwd=2)
 legend("topright", legend = c("mean"), col=c("red"), lty=c(1))
 ```
+
+![](figure/histogram with mean-1.png)<!-- -->
 
 ### What is the average daily activity pattern?
 
