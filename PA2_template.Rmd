@@ -1,0 +1,289 @@
+---
+title: "Most harmful weather events in USA"
+author: "David Conejero"
+date: "26 de julio de 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(warnings = FALSE)
+knitr::opts_chunk$set(fig.path = "figure/")
+```
+
+## Synopsis
+
+In this report we aim to provide information on which is the more harmful weather
+event in USA. In order to do that we used the National Oceanic 
+and Atmospheric Administration (NOAA) [Storm Database][1]. This database is an official
+NOAA publication which documents the occurrence of storms and other significant weather phenomena having sufficient intensity to cause loss of life, injuries, significant property damage, and/or disruption to commerce. 
+
+In this report we check the impact of weather events from two different visions: 
+harm done to the population health and economic impact. From those analyses, we could
+see that the most harmful events for the population are Tornadoes and Flood have the biggest
+economic impact.
+
+
+## Data Processing
+
+First of all we upload the libraries we are going to use
+
+```{r libraries, message=FALSE}
+library(dplyr)
+library(ggplot2)
+library(gridExtra)
+```
+
+We get the information from the StormDatabase and we upload it to the system. It 
+contains weather events from 1950 up until today.
+
+```{r load, cache=TRUE}
+destfile="stormdata.csv.bz2"
+download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2",
+                      destfile)
+stormdata<-read.csv(destfile)
+```
+
+We checked that the information is properly formatted
+
+```{r check}
+str(stormdata)
+```
+
+EVTYPE contains the weather event name. But there are 980 *different* weather events.
+We took a closer look:
+
+```{r events}
+weather_types<-levels(stormdata$EV)
+set.seed(400)
+weather_types[sample(1:980,30)]
+```
+
+As it can be seen there are strange texts like "Summary August 7" and *duplicated*
+entries like "HAIL 1.00", "HAIL 1.75)", and we know there is one "HAIL". In order
+to treat this properly a more in depth study should be done on these values and 
+some data should be cleaned up. We can check how many of these events may have real
+impact, either in the number of events or fatalities registered:
+
+```{r impact}
+by_event<-stormdata %>% 
+          group_by(EVTYPE) %>% 
+          summarise(sum_fatalities=sum(FATALITIES), 
+                    c=n())
+
+quantile(by_event$c, c(0.8,0.9,0.95,0.99,1))
+sum(head(by_event$c[order(by_event$c,decreasing = T)],30))/sum(by_event$c)
+
+quantile(by_event$sum_fatalities, c(0.8,0.9,0.95,0.99,1))
+sum(head(by_event$sum_fatalities[order(by_event$sum_fatalities,decreasing = T)],30))/sum(by_event$sum_fatalities)
+```
+As it can be seen, the impact in both, fatalities and number of events, is very low
+for most of them. And since this is just scholar assignment, I will let the analysis for another time. However, we will see it will have some impact on the classification 
+of events based on the overall economical impact.
+
+Another aspect to be considered is that, from the documentation we know that the way the information is registered has been changing along the years. So I decided to check how may have impacted this changes on the registration process and how may it impact on the figures of this report. On this [report][2] there is a description of this analysis. But it doesn't seem to change significantly the results found on this report.
+
+Taking into consideration these two factors, we start the analysis on the impact on population health and economic consequences.
+
+## Results
+
+### Harm done to population
+
+There may be 2 different kinds of harms done to the population: fatalities and injuries.
+
+We will analyze both separately. First we consider fatalities caused by weather events:
+
+#### Fatalities
+
+```{r fatalities}
+by_event<-stormdata %>% 
+          group_by(EVTYPE) %>% 
+          summarise(sum_fatalities=sum(FATALITIES), 
+                    sum_injuries=sum(INJURIES))
+
+top_fatalities<-by_event %>% arrange(desc(sum_fatalities)) %>% head(5)
+top_fatalities$EVTYPE<-factor(top_fatalities$EVTYPE, 
+                              levels=top_fatalities$EVTYPE[order(top_fatalities$sum_fatalities,
+                              decreasing = TRUE)])
+```
+
+From this we can see that the events with more fatalities are:
+
+```{r fatalities_plot, echo=FALSE}
+ggplot(top_fatalities, aes(x=EVTYPE, y=sum_fatalities)) + 
+        geom_bar(stat="identity", fill=c("red")) + labs(x="Events", y="Fatalities")
+```
+
+And the most harmful event is the TORNADO with
+```{r top_fatalities}
+top_fatalities$sum_fatalities[1]
+```
+
+#### Injuries
+
+```{r injuries}
+top_injuries<-by_event %>% arrange(desc(sum_injuries)) %>% head(5)
+top_injuries$EVTYPE<-factor(top_injuries$EVTYPE,
+                            levels=top_injuries$EVTYPE[order(top_injuries$sum_injuries,
+                            decreasing = TRUE)])
+```
+
+From this we can see that the events with more injuries are:
+
+```{r injuries_plot, echo=FALSE}
+ggplot(top_injuries, aes(x=EVTYPE, y=sum_injuries)) + 
+        geom_bar(stat="identity", fill=c("red")) + labs(x="Events", y="Injuries")
+```
+
+And the event with more injured people is, again, the TORNADO with
+```{r top_injuries}
+top_injuries$sum_injuries[1]
+```
+
+### Economic impact
+
+On the database, the economic impact is computed by two different fields: property
+damage and crop damage. We will follow the same approximation, but at the end we will
+sum up all the economical damage to see the impact of the different weather events
+in US economy.
+
+On the database, the information for property and crop damage is splitted in 2
+columns, one containing the *value* of the economic loss, the other the *magnitude
+order*. However, the *magnitude order* has some errors:
+
+
+```{r magnitud_order_errors}
+table(stormdata$PROPDMGEXP)
+table(stormdata$CROPDMGEXP)
+```
+
+As it can be seen, most of the values are K (thousand) or M (millions),
+from the documentation we know that B are billions (10^9), but we don't know
+what the other values mean. Since they are very few (compared to the others) I 
+will not take them into consideration at all. However, it must be noted that, 
+depending on its **real** value (8->10^8?), they can have a *huge* impact on this analysis.
+
+First we extract the economic cost for property damage, crop damage and total by
+type of event.
+
+```{r economic}
+economic<-select(stormdata, BGN_DATE, EVTYPE, PROPDMG, CROPDMG, PROPDMGEXP, CROPDMGEXP)
+
+economic<-mutate(stormdata, 
+                 PROP=case_when(PROPDMGEXP=="M" ~ PROPDMG*10^6, 
+                                PROPDMGEXP=="B" ~ PROPDMG*10^9, 
+                                PROPDMGEXP=="K" ~ PROPDMG*10^3, 
+                                TRUE ~ 0),
+                 CROP=case_when(CROPDMGEXP=="M" ~ CROPDMG*10^6, 
+                                CROPDMGEXP=="B" ~ CROPDMG*10^9, 
+                                CROPDMGEXP=="K" ~ CROPDMG*10^3, 
+                                TRUE ~ 0),
+                 TOTAL=PROP+CROP
+                 )
+
+e_by_event<-economic %>% 
+            group_by(EVTYPE) %>% 
+            summarise(sum_prop=sum(PROP), 
+                      sum_crop=sum(CROP),
+                      sum_total=sum(TOTAL))
+```
+
+#### Property damage
+
+First we get the property damage cost by type of weather event.
+
+```{r cost_in_property_damage}
+top_prop<-e_by_event %>% arrange(desc(sum_prop)) %>% head(5)
+top_prop$EVTYPE<-factor(top_prop$EVTYPE, 
+                        levels=top_prop$EVTYPE[order(top_prop$sum_prop,
+                                                     decreasing = TRUE)])
+
+```
+
+From this we can see that the events with greatest property damages are:
+
+```{r top_property_damages, echo=FALSE}
+select(top_prop,EVTYPE,sum_prop)
+```
+
+And the most costly event for properties is the FLOOD with almost 150B$
+
+#### Crop damage
+
+First we get the crop damage cost by type of weather event.
+
+```{r cost_in_crop_damage}
+top_crop<-e_by_event %>% arrange(desc(sum_crop)) %>% head(5)
+top_crop$EVTYPE<-factor(top_crop$EVTYPE, 
+                        levels=top_crop$EVTYPE[order(top_crop$sum_crop,
+                                                     decreasing = TRUE)])
+```
+
+From this we can see that the events with greatest crop damages are:
+
+```{r top_crop_damages, echo=FALSE}
+select(top_crop,EVTYPE,sum_crop)
+```
+
+And the most costly event for crop is the DOUGHT with almost 14B$
+
+#### Total damage
+
+First we get the total damage cost by type of weather event.
+
+```{r cost_in_total}
+top_total<-e_by_event %>% arrange(desc(sum_total)) %>% head(10)
+top_total$EVTYPE<-factor(top_total$EVTYPE, 
+                        levels=top_total$EVTYPE[order(top_total$sum_total,
+                                                     decreasing = TRUE)])
+```
+
+From this we can see that the events with greatest economic damages are:
+
+```{r top_total, echo=FALSE}
+select(top_total,EVTYPE,sum_total)
+```
+
+We can also see it if we plot those values in the following figures:
+```{r plot, fig.width=10}
+
+plot_p<-ggplot(top_prop, aes(x=EVTYPE, y=sum_prop/10^9)) + 
+        geom_bar(stat="identity", fill=c("red"))  + 
+        labs(y="Property damages (Billion $)", x="Event") + 
+        theme(axis.text.x = element_text(size=7))
+
+plot_c<-ggplot(top_crop, aes(x=EVTYPE, y=sum_crop/10^9)) + 
+        geom_bar(stat="identity", fill=c("red"))  + 
+        labs(y="Crop damages (Billion $)", x="Event")
+
+
+plot_t<-ggplot(top_total, aes(x=EVTYPE, y=sum_total/10^9)) + 
+        geom_bar(stat="identity", fill=c("red"))  + 
+        labs(y="Economic damage (Billion $)", x="Event") + 
+        theme(axis.text.x = element_text(size=8))
+
+grid.arrange(plot_t,plot_p,plot_c, ncol=2, layout_matrix=cbind(c(1,2),c(1,3)))
+```
+
+
+And the most costly event is the FLOOD with more than 150B$, while DROUGHT is
+only the 7th, which it seems to make sense, since it has almost no economical 
+impact on property damage. 
+
+One think that needs to be pointed out is that in this list, we can see 
+"HURRICANE/TYPHOON" and "HURRICANE". It needs a further analysis to understand 
+if this distinction is needed or it can all the events been labeled just as 
+"HURRICANE".
+
+## Conclusions
+
+The most harmful weather events for population are Tornadoes, with 5,633 fatalities
+and more than 9,000 injuries.
+
+The most harmful weather events for economy are Floods, with an impact of more 
+than 150B$ in property damages. However, for crops, the most harmful economic 
+impact is from the DROUGHT with 15B$.
+
+
+[1]: https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2FNCDC%20Storm%20Events-FAQ%20Page.pdf 
+[2]: https://rpubs.com/aldacon/historical-analysis

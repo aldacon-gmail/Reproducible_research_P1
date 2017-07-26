@@ -1,0 +1,150 @@
+---
+title: "Historical evolution of NOAA records"
+author: "David Conejero"
+date: "26 de julio de 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(warnings = FALSE)
+knitr::opts_chunk$set(fig.path = "figure/")
+```
+
+## Synopsis
+
+As part of the analysis on the [Most harmful weather events in USA][2] I detected
+two possible sources of errors on the analysis of the data provided by the National Oceanic 
+and Atmospheric Administration (NOAA) [Storm Database][1].
+
+One was related to the fact that there were some EVTYPE errors.
+The other was that, since the information is recorded from 1950's, the precision
+on the data registration has increased along the years, and some bias could be introduced
+to the analysis done using the database.
+
+This report includes some information that may help work properly with the data provided by the database.
+
+## Data Processing
+
+First of all we upload the libraries we are going to use
+
+```{r libraries, message=FALSE}
+library(dplyr)
+library(ggplot2)
+library(gridExtra)
+library(lubridate)
+```
+
+We get the information from the StormDatabase and we upload it to the system. It 
+contains weather events from 1950 up until today.
+
+```{r load, cache=TRUE}
+destfile="stormdata.csv.bz2"
+download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2",
+                      destfile)
+stormdata<-read.csv(destfile)
+```
+
+
+## Weather events evolution
+
+On this report I want to check how the registration of events evolved along the years.
+
+One of the first things to be noted is that there are too many types of events 
+registered (985). And some of them are erroneous or duplicated
+
+```{r events}
+weather_types<-levels(stormdata$EV)
+length(weather_types)
+set.seed(400)
+weather_types[sample(1:980,30)]
+```
+
+However, most of them appear just once or twice, and they don't have a big impact
+on the data, and no impact at all on the analysis we are doing right now.
+
+In order to analyze the historical evolution of "well" registered events, I will
+group the data by events, and choose the top 5 most repeated event types along history.
+For that, previously I would have assigned one year to each event. In this case
+I chose the year when the event begins (since it is not expected that one event lasts
+for two different years, except on the specific event that it started on Dec 31st and
+ended January 1st. In any case, it doesn't matter on which year this event is registered
+if it is only registered once)
+
+```{r historical, fig.width=10}
+# This step will allow to simplify the data.frame used
+historical<-select(stormdata, BGN_DATE, EVTYPE, FATALITIES, INJURIES)
+historical<-mutate(historical, year=year(strptime(as.character(BGN_DATE),"%m/%d/%Y %H:%M:%S")))
+by_event<-stormdata %>% 
+          group_by(EVTYPE) %>% 
+          summarise(c=n())
+top_types<-by_event[order(by_event$c,decreasing = T),]
+tt<-head(top_types$EVTYPE, 5)
+tt_historical<-filter(historical, EVTYPE %in% tt)
+#checking
+tt_historical %>% group_by(EVTYPE) %>% summarise(c=n()) %>% arrange(desc(c))
+
+
+count_tt_historical<- tt_historical %>% group_by(EVTYPE, year) %>% summarise(c=n())
+
+ggplot(data=count_tt_historical, aes(x=year,y=c,col=EVTYPE)) +geom_point()
+```
+
+As it can be seen on the figures, while the number of TORNADOs reported is more 
+or less the same from 50's to nowadays, HAIL and TSTM WIND is growing exponentially
+from 80's, there are no reports of FLASH FOOD before 90's, and there is a lot of
+variance in the distribution of THUNDERSTORM WIND reports.
+
+To check the evolution of the elements more harmful for population and economics,
+we should get the list of events and see its evolution. To see where top_fatalities,
+top_injuries, top_prop, top_crop and top_total are obtained, please, check [Most harmful weather events in USA][2]
+
+```{r historical_harmful, fig.width=10}
+
+by_event<-stormdata %>% 
+          group_by(EVTYPE) %>% 
+          summarise(sum_fatalities=sum(FATALITIES), 
+                    sum_injuries=sum(INJURIES))
+
+
+top_fatalities<-by_event %>% arrange(desc(sum_fatalities)) %>% head(5)
+top_injuries<-by_event %>% arrange(desc(sum_injuries)) %>% head(5)
+
+economic<-select(stormdata, BGN_DATE, EVTYPE, PROPDMG, CROPDMG, PROPDMGEXP, CROPDMGEXP)
+
+economic<-mutate(stormdata, 
+                 PROP=case_when(PROPDMGEXP=="M" ~ PROPDMG*10^6, 
+                                PROPDMGEXP=="B" ~ PROPDMG*10^9, 
+                                PROPDMGEXP=="K" ~ PROPDMG*10^3, 
+                                TRUE ~ 0),
+                 CROP=case_when(CROPDMGEXP=="M" ~ CROPDMG*10^6, 
+                                CROPDMGEXP=="B" ~ CROPDMG*10^9, 
+                                CROPDMGEXP=="K" ~ CROPDMG*10^3, 
+                                TRUE ~ 0),
+                 TOTAL=PROP+CROP
+                 )
+
+e_by_event<-economic %>% 
+            group_by(EVTYPE) %>% 
+            summarise(sum_prop=sum(PROP), 
+                      sum_crop=sum(CROP),
+                      sum_total=sum(TOTAL))
+
+top_prop<-e_by_event %>% arrange(desc(sum_prop)) %>% head(5)
+top_crop<-e_by_event %>% arrange(desc(sum_crop)) %>% head(5)
+top_total<-e_by_event %>% arrange(desc(sum_total)) %>% head(10)
+
+tt<-unique(c(as.character(top_fatalities$EVTYPE),as.character(top_injuries$EVTYPE),as.character(top_prop$EVTYPE),as.character(top_crop$EVTYPE),as.character(top_total$EVTYPE)))
+
+tt_historical<-filter(historical, EVTYPE %in% tt)
+
+count_tt_historical<- tt_historical %>% group_by(EVTYPE, year) %>% summarise(c=n())
+
+ggplot(data=count_tt_historical, aes(x=year,y=c,col=EVTYPE)) +geom_point()
+```
+
+As it can be seen, almost all the events are reported after 1990, except for TORNADO,
+TSTM WIND and HAIL. The explanation of the way they have been registered has already been done on the previous figure.
+
+[1]: https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2FNCDC%20Storm%20Events-FAQ%20Page.pdf 
+[2]: https://rpubs.com/aldacon/reproducible-research-2
